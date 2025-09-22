@@ -9,21 +9,30 @@ import { Building2, User, Shield } from "lucide-react";
 import { Navigation } from "@/components/ui/navigation";
 import { useToast } from "@/hooks/use-toast";
 
+// A simple helper function to decode the JWT payload to get the user's role
+function parseJwt(token: string) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("user");
 
-  // form state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleUserLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/login", {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -31,17 +40,26 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.token) {
+        // Save the token to localStorage. This is crucial for future API calls.
+        localStorage.setItem("token", data.token);
+
+        // Decode the token to check the user's role
+        const decodedToken = parseJwt(data.token);
+        const role = decodedToken?.role;
+
         toast({
           title: "Login successful!",
-          description: `Welcome back, ${data.user.name}`,
+          description:` Welcome back, ${username}`,
         });
+        
+        // Navigate to the correct dashboard based on the role
+        if (role === 'admin') {
+          navigate("/admin");
+        } else {
+          navigate("/offices");
+        }
 
-        // save user info in localStorage (basic)
-        localStorage.setItem("user", JSON.stringify(data.user));
-
-        // go to user dashboard
-        navigate("/offices");
       } else {
         toast({
           title: "Login failed",
@@ -53,40 +71,24 @@ export default function Login() {
       console.error("Login error:", error);
       toast({
         title: "Error",
-        description: "Server not responding",
+        description: "Server not responding. Please ensure it's running.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
-
-  const handleAdminLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-
-    // for now, simple hardcoded admin login
-    if (username === "admin" && password === "admin123") {
-      toast({
-        title: "Admin login successful!",
-        description: "Welcome to the admin dashboard",
-      });
-      navigate("/admin");
-    } else {
-      toast({
-        title: "Admin login failed",
-        description: "Invalid admin credentials",
-        variant: "destructive",
-      });
-    }
-
-    setLoading(false);
-  };
+  
+  // Clear form fields when switching between user and admin tabs
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setUsername("");
+    setPassword("");
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent via-background to-secondary">
       <Navigation />
-
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
           <div className="text-center mb-8">
@@ -98,8 +100,8 @@ export default function Login() {
               Sign in to access your GovConnect account
             </p>
           </div>
-
-          <Tabs defaultValue="user" className="w-full">
+          
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="user" className="flex items-center space-x-2">
                 <User className="h-4 w-4" />
@@ -110,15 +112,14 @@ export default function Login() {
                 <span>Admin</span>
               </TabsTrigger>
             </TabsList>
-
-            {/* USER LOGIN */}
+            
             <TabsContent value="user">
               <Card className="shadow-elegant">
                 <CardHeader>
                   <CardTitle>User Login</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleUserLogin} className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="username">Username</Label>
                       <Input
@@ -159,15 +160,14 @@ export default function Login() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* ADMIN LOGIN */}
+            
             <TabsContent value="admin">
               <Card className="shadow-elegant">
                 <CardHeader>
                   <CardTitle>Admin Login</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="admin-username">Username</Label>
                       <Input
