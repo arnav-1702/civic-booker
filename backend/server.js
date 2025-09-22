@@ -8,6 +8,7 @@ require('./config/db'); // This line executes db.js and connects to MySQL
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const officeRoutes = require('./routes/offices');
+const appointmentRoutes = require('./routes/appointments');
 
 const app = express();
 const PORT = 5000;
@@ -20,6 +21,7 @@ app.use(bodyParser.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/offices', officeRoutes);
+app.use('/api/appointments',appointmentRoutes);
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
